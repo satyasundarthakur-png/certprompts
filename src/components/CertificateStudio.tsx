@@ -7,6 +7,7 @@ import { analyseWithAI, DEFAULT_MODELS, type Provider } from "@/lib/ai";
 import { INSTRUCTION, parseAnalysis, type Analysis, type Part } from "@/lib/analysis";
 import { blankTemplate, lineArt } from "@/lib/refimage";
 import { buildPrompts, exportText, partPrompt, TOOLS, type Tool } from "@/lib/prompts";
+import TemplatePanel from "@/components/TemplatePanel";
 import { clearHistory, deleteHistory, listHistory, newHistoryId, saveHistory, type HistoryEntry } from "@/lib/history";
 
 type Method = "local" | "chatbot" | "gemini" | "groq" | "server";
@@ -442,6 +443,8 @@ export default function CertificateStudio() {
                   </div>
                 )}
               </section>
+
+              <TemplatePanel analysis={analysis} />
 
               <section aria-labelledby="s5" className="grid gap-3">
                 <div>
