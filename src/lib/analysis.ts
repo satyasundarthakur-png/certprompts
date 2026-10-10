@@ -76,15 +76,21 @@ export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis
   } catch {
     throw new Error("The reply wasn't valid JSON. Ask the chatbot to reply with JSON only and try again.");
   }
-  const arr = (v: unknown) => (Array.isArray(v) ? v : []);
-  const aspect = arr(obj["aspect"]).map(Number).filter((n) => n > 0);
+  // Keep only plain objects: a model reply like "parts": [null, "border"] used to
+  // crash with a raw TypeError instead of a friendly message.
+  const arr = (v: unknown): Record<string, unknown>[] =>
+    Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x)) : [];
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const aspect = list(obj["aspect"]).map(Number).filter((n) => n > 0);
   const orientation = s(obj["orientation"]) === "portrait" ? "portrait" : "landscape";
   const seen = new Set<string>();
   const parts: Part[] = arr(obj["parts"])
-    .map((p: Record<string, unknown>) => {
+    .map((p) => {
       const name = s(p["name"], "Component");
       let id = slug(s(p["id"]) || name);
-      while (seen.has(id)) id += "-2";
+      // Unique ids: "border", "border-2", "border-3" (was "border-2-2").
+      const base = id;
+      for (let n = 2; seen.has(id); n++) id = `${base}-${n}`;
       seen.add(id);
       return {
         id,
@@ -104,13 +110,13 @@ export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis
     orientation,
     aspect: aspect.length === 2 ? [aspect[0] ?? 297, aspect[1] ?? 210] : orientation === "portrait" ? [210, 297] : [297, 210],
     style: s(obj["style"], "formal certificate"),
-    mood: arr(obj["mood"]).map((m) => s(m)).filter(Boolean).slice(0, 6),
+    mood: list(obj["mood"]).map((m) => s(m)).filter(Boolean).slice(0, 6),
     palette: arr(obj["palette"])
-      .map((p: Record<string, unknown>) => ({ name: s(p["name"], "colour"), hex: /^#[0-9a-f]{6}$/i.test(s(p["hex"])) ? s(p["hex"]).toLowerCase() : "#888888", role: s(p["role"]) }))
+      .map((p) => ({ name: s(p["name"], "colour"), hex: /^#[0-9a-f]{6}$/i.test(s(p["hex"])) ? s(p["hex"]).toLowerCase() : "#888888", role: s(p["role"]) }))
       .slice(0, 8),
     parts,
     text: arr(obj["text"])
-      .map((t: Record<string, unknown>) => ({ element: s(t["element"], "text"), content: s(t["content"]), style: s(t["style"]) }))
+      .map((t) => ({ element: s(t["element"], "text"), content: s(t["content"]), style: s(t["style"]) }))
       .filter((t) => t.content),
   };
 }

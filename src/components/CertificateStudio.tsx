@@ -162,6 +162,9 @@ export default function CertificateStudio() {
   function onDrop(e: DragEvent) {
     e.preventDefault();
     setOver(false);
+    // The file button is disabled while busy; drops must be too, otherwise a slow
+    // AI reply for the old file would be shown against the newly dropped one.
+    if (busy) return;
     void onFile(e.dataTransfer.files?.[0]);
   }
 
@@ -175,25 +178,25 @@ export default function CertificateStudio() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line bg-card">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
-          <img src="/favicon.svg" alt="" width={30} height={30} />
+      <header className="studio-header">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-5 sm:px-6">
+          <img src="/favicon.svg" alt="" width={36} height={36} className="rounded-lg shadow-md ring-2 ring-white/40" />
           <div>
-            <h1 className="font-display text-xl leading-none">Certificate Prompt Studio</h1>
-            <p className="mt-1 text-xs text-muted-foreground">Upload a certificate · get every component described · paste the prompts into any AI image tool</p>
+            <h1 className="font-display text-2xl leading-none">Certificate Prompt Studio</h1>
+            <p className="mt-1.5 text-xs text-white/85">Upload a certificate · get every component described · paste the prompts into any AI image tool</p>
           </div>
         </div>
       </header>
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[400px_1fr]">
         <div className="grid content-start gap-4">
-          <section className="rounded-2xl border border-line bg-card p-5" aria-labelledby="s1">
-            <h2 id="s1" className="mb-3 font-display text-lg">1 · Upload</h2>
+          <section className="panel" data-tone="violet" aria-labelledby="s1">
+            <h2 id="s1" className="panel-title mb-3"><span className="step-badge">1</span>Upload</h2>
             <div
               onDragOver={(e) => { e.preventDefault(); setOver(true); }}
               onDragLeave={() => setOver(false)}
               onDrop={onDrop}
-              className={`rounded-xl border-2 border-dashed p-5 text-center transition ${over ? "border-brand bg-brand/5" : "border-line"}`}
+              className={`rounded-xl border-2 border-dashed p-5 text-center transition ${over ? "border-brand bg-brand/10" : "border-brand/30 bg-gradient-to-br from-violet-50 to-pink-50 dark:from-transparent dark:to-transparent"}`}
             >
               {ref?.thumb ? (
                 <img src={ref.thumb} alt="Uploaded certificate" className="mx-auto mb-3 max-h-48 rounded border border-line" />
@@ -207,8 +210,8 @@ export default function CertificateStudio() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-line bg-card p-5" aria-labelledby="s2">
-            <h2 id="s2" className="mb-3 font-display text-lg">2 · How to analyse</h2>
+          <section className="panel" data-tone="pink" aria-labelledby="s2">
+            <h2 id="s2" className="panel-title mb-3"><span className="step-badge">2</span>How to analyse</h2>
             <div role="radiogroup" aria-label="Analysis method" className="grid gap-2">
               {METHODS.filter((m) => m.show).map((m) => (
                 <label key={m.id} className={`flex cursor-pointer gap-2 rounded-lg border p-3 text-sm ${method === m.id ? "border-brand bg-brand/5" : "border-line"}`}>
@@ -263,15 +266,15 @@ export default function CertificateStudio() {
 
         <div className="grid content-start gap-5">
           {!analysis ? (
-            <div className="grid min-h-[320px] place-items-center rounded-2xl border border-dashed border-line bg-card p-8 text-center text-sm text-muted-foreground">
+            <div className="empty-state grid min-h-[320px] place-items-center rounded-2xl p-8 text-center text-sm">
               {ref ? "Choose a method and press Analyse." : "Upload a certificate to begin."}
             </div>
           ) : (
             <>
-              <section className="rounded-2xl border border-line bg-card p-5" aria-labelledby="s3">
+              <section className="panel" data-tone="amber" aria-labelledby="s3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 id="s3" className="font-display text-lg">Design summary</h2>
+                    <h2 id="s3" className="panel-title">Design summary</h2>
                     <p className="text-xs text-muted-foreground">
                       {analysis.source === "local" ? "Quick scan — parts marked “assumed” are typical guesses; untick what isn't there." : "AI analysis"} · {analysis.orientation} · {analysis.style}
                     </p>
@@ -292,9 +295,9 @@ export default function CertificateStudio() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-line bg-card p-5" aria-labelledby="s4">
+              <section className="panel" data-tone="teal" aria-labelledby="s4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <h2 id="s4" className="font-display text-lg">Full-page prompt</h2>
+                  <h2 id="s4" className="panel-title">Full-page prompt</h2>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" className="accent-brand" checked={withText} onChange={(e) => setWithText(e.target.checked)} />
                     Put the wording in the image
@@ -322,7 +325,7 @@ export default function CertificateStudio() {
                         { src: refImgs?.lines, name: "reference-lineart.png", title: "Line art", tip: "For ControlNet" },
                       ].map((r) => (
                         <div key={r.title} className="grid gap-1.5 text-center">
-                          <div className="grid aspect-[1.414] place-items-center overflow-hidden rounded border border-line bg-card">
+                          <div style={{ aspectRatio: ratio }} className="grid place-items-center overflow-hidden rounded border border-line bg-card">
                             {r.src ? <img src={r.src} alt={r.title} className="h-full w-full object-contain" /> : <span className="text-[10px] text-muted-foreground">Preparing…</span>}
                           </div>
                           <span className="text-xs font-semibold">{r.title}</span>
@@ -364,12 +367,12 @@ export default function CertificateStudio() {
 
               <section aria-labelledby="s5" className="grid gap-3">
                 <div>
-                  <h2 id="s5" className="font-display text-lg">Components ({analysis.parts.filter((p) => p.include).length}/{analysis.parts.length})</h2>
+                  <h2 id="s5" className="panel-title">Components ({analysis.parts.filter((p) => p.include).length}/{analysis.parts.length})</h2>
                   <p className="text-xs text-muted-foreground">Edit any prompt — the full-page prompt updates. Untick a part to leave it out. “Stand-alone” makes that part on its own (e.g. a seal to place yourself).</p>
                 </div>
                 <ul className="grid gap-3 md:grid-cols-2">
                   {analysis.parts.map((p) => (
-                    <li key={p.id} className={`grid gap-2 rounded-xl border bg-card p-4 ${p.include ? "border-line" : "border-dashed border-line opacity-60"}`}>
+                    <li key={p.id} data-kind={p.kind} className={`part-card grid gap-2 rounded-xl border bg-card p-4 ${p.include ? "border-line" : "border-dashed border-line opacity-60"}`}>
                       <div className="flex items-start justify-between gap-2">
                         <label className="flex items-center gap-2 text-sm font-semibold">
                           <input type="checkbox" className="accent-brand" checked={p.include} onChange={(e) => updatePart(p.id, { include: e.target.checked })} />

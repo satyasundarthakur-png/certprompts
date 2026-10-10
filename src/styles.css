@@ -76,35 +76,46 @@
 
 :root {
   --radius: .5rem;
-  --background: oklch(.970 .006 95);
+  --background: oklch(.975 .012 300);
   --foreground: oklch(.209 .005 270);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --primary: oklch(.434 .166 289);
+  --primary: oklch(.52 .22 292);
   --primary-foreground: oklch(1 0 0);
   --secondary: var(--background);
   --secondary-foreground: var(--foreground);
   --muted: var(--background);
   --muted-foreground: oklch(.537 .009 265);
-  --accent: oklch(.949 .016 289);
+  --accent: oklch(.95 .03 300);
   --accent-foreground: var(--primary);
   --destructive: oklch(.577 .245 27);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(.913 .009 91);
+  --border: oklch(.90 .025 300);
   --input: var(--border);
   --ring: var(--primary);
   --detected: oklch(.950 .052 163);
   --detected-foreground: oklch(.432 .095 166);
   --assumed: oklch(.962 .059 96);
   --assumed-foreground: oklch(.473 .137 46);
+  /* Colourful studio palette: one hue per step so the flow is easy to follow. */
+  --tone-violet: oklch(.56 .22 292);
+  --tone-pink: oklch(.63 .22 355);
+  --tone-amber: oklch(.74 .16 65);
+  --tone-teal: oklch(.62 .12 190);
+  --grad-brand: linear-gradient(120deg, oklch(.50 .23 292), oklch(.60 .23 340) 55%, oklch(.72 .17 50));
 }
 
 @layer base {
   * { border-color: var(--border); }
   html { -webkit-text-size-adjust: 100%; }
-  body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  body { background:
+      radial-gradient(60rem 30rem at 0% 0%, oklch(.93 .06 300 / .55), transparent 60%),
+      radial-gradient(50rem 30rem at 100% 10%, oklch(.94 .06 350 / .45), transparent 60%),
+      radial-gradient(50rem 30rem at 50% 100%, oklch(.95 .06 190 / .4), transparent 60%),
+      var(--background);
+    background-attachment: fixed; color: var(--foreground); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
   button, input, textarea { font: inherit; }
 }
 @layer components {
@@ -112,12 +123,28 @@
   .btn:hover { border-color: oklch(from var(--foreground) l c h / 40%); }
   .btn:focus-visible, .field:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   .btn:disabled { opacity: .5; }
-  .btn-primary { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
-  .btn-primary:hover { border-color: var(--primary); background: oklch(from var(--primary) l c h / 90%); }
+  .btn-primary { border-color: transparent; background: var(--grad-brand); color: var(--primary-foreground); box-shadow: 0 4px 14px -4px oklch(.55 .22 320 / .55); }
+  .btn-primary:hover { border-color: transparent; filter: brightness(1.07); }
   .chip { border-radius: 999px; border: 1px solid var(--border); background: var(--card); padding: .25rem .75rem; font-size: .875rem; transition: border-color .15s; }
   .chip:hover { border-color: oklch(from var(--foreground) l c h / 40%); }
-  .chip[aria-pressed="true"], .chip[aria-selected="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
+  .chip[aria-pressed="true"], .chip[aria-selected="true"] { border-color: transparent; background: var(--grad-brand); color: var(--primary-foreground); }
   .field { width: 100%; min-width: 0; border-radius: .5rem; border: 1px solid var(--border); background: var(--card); padding: .5rem .75rem; font-size: .875rem; }
   .label { margin-bottom: .375rem; display: block; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .025em; color: var(--muted-foreground); }
+}
+@layer components {
+  /* Gradient app bar */
+  .studio-header { background: var(--grad-brand); color: #fff; box-shadow: 0 6px 24px -10px oklch(.5 .2 320 / .6); }
+  /* Step panels: white card with a coloured top stripe and tinted title */
+  .panel { --tone: var(--tone-violet); position: relative; overflow: hidden; border-radius: 1rem; border: 1px solid var(--border); background: var(--card); padding: 1.25rem; box-shadow: 0 8px 24px -16px oklch(from var(--tone) l c h / .7); }
+  .panel::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--tone); }
+  .panel[data-tone="pink"] { --tone: var(--tone-pink); }
+  .panel[data-tone="amber"] { --tone: var(--tone-amber); }
+  .panel[data-tone="teal"] { --tone: var(--tone-teal); }
+  .panel-title { display: flex; align-items: center; gap: .5rem; font-family: var(--font-display); font-size: 1.125rem; color: oklch(from var(--tone, var(--tone-violet)) calc(l - .12) c h); }
+  .step-badge { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: var(--tone); color: #fff; font-size: .8rem; }
+  .empty-state { border: 2px dashed oklch(from var(--tone-violet) l c h / .35); background: linear-gradient(135deg, oklch(.97 .03 300), oklch(.97 .03 350)); color: var(--muted-foreground); }
+  /* Component cards: violet edge for artwork, teal for text */
+  .part-card { border-left: 4px solid var(--tone-violet); }
+  .part-card[data-kind="text"] { border-left-color: var(--tone-teal); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

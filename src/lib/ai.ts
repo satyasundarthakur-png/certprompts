@@ -17,7 +17,9 @@ export function shrink(dataUrl: string, maxW = 1280): Promise<string> {
       c.width = Math.round(i.width * s);
       c.height = Math.round(i.height * s);
       const x = c.getContext("2d");
-  if (!x) throw new Error("Canvas processing is unavailable in this browser.");
+      // Must reject, not throw: a throw inside onload escapes the Promise and the
+      // UI would stay stuck on "Asking the AI…" forever.
+      if (!x) return rej(new Error("Canvas processing is unavailable in this browser."));
       x.fillStyle = "#fff";
       x.fillRect(0, 0, c.width, c.height);
       x.drawImage(i, 0, 0, c.width, c.height);
