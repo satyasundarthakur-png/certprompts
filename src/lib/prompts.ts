@@ -34,10 +34,18 @@ function nearestRatio([w, h]: [number, number]) {
   return opts.reduce((best, o) => (Math.abs(o[1] - r) < Math.abs(best[1] - r) ? o : best))[0];
 }
 
+/** w:h as small whole numbers, whatever unit the aspect came in (mm, inches, px or a bare 1.414). */
 function mjRatio([w, h]: [number, number]) {
-  const a = Math.round(w), b = Math.round(h);
+  const k = Number.isInteger(w) && Number.isInteger(h) ? 1 : 100;
+  const a = Math.max(1, Math.round(w * k)), b = Math.max(1, Math.round(h * k));
   const g = gcd(a, b) || 1;
   return `${a / g}:${b / g}`;
+}
+
+/** SVG canvas with the page's shape and a long side of 1200 units, whatever unit the aspect came in. */
+function canvasSize([w, h]: [number, number]): [number, number] {
+  const r = w / h;
+  return r >= 1 ? [1200, Math.round(1200 / r)] : [Math.round(1200 * r), 1200];
 }
 
 const sentence = (s: string) => {
@@ -58,6 +66,8 @@ function textOnlyPrompts(a: Analysis, o: BuildOptions): ToolPrompt[] {
   const noText = "blank certificate template, no text, no letters, no words, empty centre area left for text to be added later";
   const negCommon = "photo mockup, perspective, table, hands, frame on wall, shadows of objects, watermark, blurry, low resolution, jpeg artifacts, cropped edges";
   const neg = o.withText ? `${negCommon}, misspelled text, garbled letters` : `${negCommon}, text, letters, words, typography, signature`;
+  // Midjourney's --no list is kept short, so the wording-related terms must come first or they get cut.
+  const mjNegatives = [...(o.withText ? ["misspelled text", "garbled letters"] : ["text", "letters", "words"]), ...negCommon.split(", ")].slice(0, 8).join(", ");
 
   const tags = (parts: Part[]) => parts.map((p) => p.prompt.replace(/\.$/, "")).join(", ");
   const textTags = txt.map((p) => p.prompt).join(", ");
@@ -70,7 +80,7 @@ function textOnlyPrompts(a: Analysis, o: BuildOptions): ToolPrompt[] {
   out.push({
     tool: "midjourney",
     label: "Midjourney",
-    prompt: `${base}, ${tags(art)}${o.withText ? `, ${textTags}` : `, ${noText}`}, colour palette ${paletteNames}, ${style}, crisp vector-like print design, symmetrical, highly detailed --ar ${mjRatio(a.aspect)} --style raw --no ${neg.split(", ").slice(0, 8).join(", ")}`,
+    prompt: `${base}, ${tags(art)}${o.withText ? `, ${textTags}` : `, ${noText}`}, colour palette ${paletteNames}, ${style}, crisp vector-like print design, symmetrical, highly detailed --ar ${mjRatio(a.aspect)} --style raw --no ${mjNegatives}`,
     settings: ["Use the latest model version.", "Add --stylize 50–150 for a more faithful, less artistic result.", "Upscale, then add exact wording in the Certificate Maker if letters come out wrong."],
   });
 
@@ -160,7 +170,8 @@ function textOnlyPrompts(a: Analysis, o: BuildOptions): ToolPrompt[] {
 /** Prompt for generating just one component as a separate asset. */
 export function partPrompt(a: Analysis, p: Part) {
   const pal = a.palette.map((s) => `${s.name} ${s.hex}`).join(", ");
-  if (p.kind === "text") return `${p.prompt}, centred on a plain ${a.palette[0]?.name ?? "white"} background, typography only, crisp and legible`;
+  const bg = a.palette.find((s) => /background|paper/i.test(`${s.role} ${s.name}`)) ?? a.palette[0];
+  if (p.kind === "text") return `${p.prompt}, centred on a plain ${bg?.name ?? "white"} background, typography only, crisp and legible`;
   return `${p.prompt}, isolated single design element on a plain white background, flat front view, ${a.style}, palette ${pal}, high detail, print quality, no text`;
 }
 
@@ -185,7 +196,7 @@ export function exportText(a: Analysis, prompts: ToolPrompt[]) {
 
 function codePrompt(a: Analysis, o: BuildOptions): ToolPrompt {
   const parts = a.parts.filter((p) => p.include);
-  const [w, h] = a.aspect;
+  const [cw, ch] = canvasSize(a.aspect);
   return {
     tool: "code",
     label: "Claude / code (SVG)",
@@ -193,7 +204,7 @@ function codePrompt(a: Analysis, o: BuildOptions): ToolPrompt {
       o.reference
         ? "I've attached a certificate. Rebuild it as a single self-contained SVG that matches the attached design as closely as possible — same layout, proportions, border, ornaments, colours and type styles."
         : "Build a certificate design as a single self-contained SVG.",
-      `Canvas: viewBox="0 0 ${w * 4} ${h * 4}" (${a.orientation}). Use only vector shapes and <text>; fonts from Google Fonts via @import are fine.`,
+      `Canvas: viewBox="0 0 ${cw} ${ch}" (${a.orientation}). Use only vector shapes and <text>; fonts from Google Fonts via @import are fine.`,
       a.summary ? `Overall: ${a.summary}` : "",
       `Palette: ${a.palette.map((p) => `${p.hex} (${p.name}${p.role ? ", " + p.role : ""})`).join(", ")}.`,
       "Components:",

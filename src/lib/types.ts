@@ -1,5 +1,5 @@
 export type Paper = "a4" | "letter";
-export type FontSet = "elegant" | "classic" | "modern" | "noto";
+export type FontSet = "elegant" | "classic" | "modern";
 
 export interface FrameLine {
   inset: number;
@@ -9,7 +9,6 @@ export interface FrameLine {
 export interface CustomStyle {
   bg: string;
   ink: string;
-  muted: string;
   accent: string;
   frames: FrameLine[];
   band: number;

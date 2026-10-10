@@ -59,7 +59,7 @@ Reply with JSON only, exactly in this shape:
 const s = (v: unknown, d = "") => (typeof v === "string" ? v.trim() : d);
 
 function slug(t: string) {
-  return t["toLowerCase"]().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "part";
+  return t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "part";
 }
 
 /** Pull the JSON object out of a model reply (tolerates code fences and chatter) and normalise it. */
@@ -81,7 +81,7 @@ export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis
   const arr = (v: unknown): Record<string, unknown>[] =>
     Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x)) : [];
   const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-  const aspect = list(obj["aspect"]).map(Number).filter((n) => n > 0);
+  const aspect = list(obj["aspect"]).map(Number).filter((n) => Number.isFinite(n) && n > 0);
   const orientation = s(obj["orientation"]) === "portrait" ? "portrait" : "landscape";
   const seen = new Set<string>();
   const parts: Part[] = arr(obj["parts"])

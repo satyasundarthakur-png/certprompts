@@ -34,6 +34,35 @@ function withHint(hint: string) {
   return hint ? `${INSTRUCTION}\n\nText found in the file (for reference only):\n${hint.slice(0, 1500)}` : INSTRUCTION;
 }
 
+export const REQUEST_TIMEOUT_MS = 90_000;
+
+/** fetch with a time limit, so a stalled connection ends in a clear message instead of "Asking the AI…" forever. */
+export async function post(url: string, init: RequestInit, who: string): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError") {
+      throw new Error(`${who} didn't answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. Try again, or use another method.`);
+    }
+    throw e;
+  }
+}
+
+interface GeminiReply {
+  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+}
+
+/** Text of a Gemini reply, or a plain-English reason when there is none (blocked, stopped early, empty). */
+export function readGeminiText(j: GeminiReply): string {
+  const text = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+  if (text) return text;
+  const finish = j.candidates?.[0]?.finishReason;
+  const why = j.promptFeedback?.blockReason ?? (finish && finish !== "STOP" ? finish : "");
+  if (why) throw new Error(`Gemini declined this image (${why}). Try another model or the chatbot method.`);
+  throw new Error("Gemini returned an empty reply. Try again, or use another model.");
+}
+
 async function fail(r: Response, who: string): Promise<never> {
   let msg = `${who} returned ${r.status}`;
   try {
@@ -60,31 +89,37 @@ export async function analyseWithAI(opts: {
   const text = withHint(opts.hint);
 
   if (opts.provider === "gemini") {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": opts.key },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text }, { inline_data: { mime_type: "image/jpeg", data: b64 } }] }],
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-      }),
-    });
+    const r = await post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": opts.key },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text }, { inline_data: { mime_type: "image/jpeg", data: b64 } }] }],
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+        }),
+      },
+      "Gemini",
+    );
     if (!r.ok) await fail(r, "Gemini");
-    const j = await r.json();
-    const out = (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
-    return parseAnalysis(out, "ai");
+    return parseAnalysis(readGeminiText((await r.json()) as GeminiReply), "ai");
   }
 
   if (opts.provider === "groq") {
-    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.key}` },
-      body: JSON.stringify({
-        model: opts.model,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [{ role: "user", content: [{ type: "text", text }, { type: "image_url", image_url: { url: img } }] }],
-      }),
-    });
+    const r = await post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.key}` },
+        body: JSON.stringify({
+          model: opts.model,
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: [{ type: "text", text }, { type: "image_url", image_url: { url: img } }] }],
+        }),
+      },
+      "Groq",
+    );
     if (!r.ok) await fail(r, "Groq");
     const j = await r.json();
     return parseAnalysis(j.choices?.[0]?.message?.content ?? "", "ai");
@@ -92,11 +127,15 @@ export async function analyseWithAI(opts: {
 
   // server: Supabase edge function (or any endpoint) that holds the key
   if (!opts.endpoint) throw new Error("No server endpoint configured.");
-  const r = await fetch(opts.endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(opts.key ? { Authorization: `Bearer ${opts.key}` } : {}) },
-    body: JSON.stringify({ image: b64, mime: "image/jpeg", hint: opts.hint }),
-  });
+  const r = await post(
+    opts.endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(opts.key ? { Authorization: `Bearer ${opts.key}` } : {}) },
+      body: JSON.stringify({ image: b64, mime: "image/jpeg", hint: opts.hint }),
+    },
+    "Server",
+  );
   if (!r.ok) await fail(r, "Server");
   const j = await r.json();
   return parseAnalysis(typeof j.text === "string" ? j.text : JSON.stringify(j), "ai");

@@ -21,7 +21,7 @@ export interface Template {
 
 /* ---------- tokens ---------- */
 
-export const esc = (s: string) =>
+const esc = (s: string) =>
   s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -46,7 +46,7 @@ export function tokenise(text: string): string {
   return text.replace(/\[([^\]\n]{1,40})\]/g, (_m, label: string) => `{{${tokenKey(label)}}}`);
 }
 
-export function tokensIn(text: string): string[] {
+function tokensIn(text: string): string[] {
   const out: string[] = [];
   for (const m of text.matchAll(/\{\{([a-z0-9_]+)\}\}/g))
     if (m[1] && !out.includes(m[1])) out.push(m[1]);
@@ -85,7 +85,7 @@ interface Colours {
   accent: string;
 }
 
-export function pickColours(a: Analysis): Colours {
+function pickColours(a: Analysis): Colours {
   const sw = a.palette.filter((p) => HEX.test(p.hex));
   const byRole = (re: RegExp) => sw.find((p) => re.test(`${p.role} ${p.name}`.toLowerCase()))?.hex;
   const lightest = [...sw].sort((x, y) => hsl(y.hex).l - hsl(x.hex).l)[0]?.hex;
@@ -174,7 +174,7 @@ function has(parts: Part[], re: RegExp): boolean {
 
 export function buildTemplate(a: Analysis, opts: { webFonts?: boolean } = {}): Template {
   const { bg, ink, accent } = pickColours(a);
-  const ratio = a.aspect[0] / a.aspect[1] || 1.414;
+  const ratio = Math.min(3.5, Math.max(0.3, a.aspect[0] / a.aspect[1] || 1.414)); // keep a sane page shape
   const landscape = ratio >= 1;
   const mm: [number, number] = landscape
     ? [297, Math.round(297 / ratio)]

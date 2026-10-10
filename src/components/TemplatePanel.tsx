@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Analysis } from "@/lib/analysis";
+import { downloadText } from "@/lib/download";
 import {
   MAX_BATCH,
   MAX_CSV_BYTES,
@@ -12,15 +13,6 @@ import {
   sampleCsv,
   type CsvData,
 } from "@/lib/template";
-
-function download(text: string, name: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
 
 /** Printable certificate built from the analysis, with {{tokens}} that a CSV can fill — one page per row. */
 export default function TemplatePanel({ analysis }: { analysis: Analysis }) {
@@ -132,7 +124,9 @@ export default function TemplatePanel({ analysis }: { analysis: Analysis }) {
             variant="studio"
             size="studio"
             type="button"
-            onClick={() => download(sampleCsv(tpl.tokens), "certificates-sample.csv", "text/csv")}
+            onClick={() =>
+              downloadText(sampleCsv(tpl.tokens), "certificates-sample.csv", "text/csv")
+            }
           >
             Download sample CSV
           </Button>
@@ -197,7 +191,7 @@ export default function TemplatePanel({ analysis }: { analysis: Analysis }) {
           size="studio"
           type="button"
           onClick={() =>
-            download(
+            downloadText(
               batch(),
               rows.length ? "certificates.html" : "certificate-blank.html",
               "text/html",
@@ -211,7 +205,7 @@ export default function TemplatePanel({ analysis }: { analysis: Analysis }) {
           size="studio"
           type="button"
           onClick={() =>
-            download(
+            downloadText(
               renderDocument(tpl, [null], "Certificate template"),
               "certificate-template.html",
               "text/html",

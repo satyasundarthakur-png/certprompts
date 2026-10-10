@@ -20,7 +20,6 @@ export interface RefResult {
   text: RefText;
   fontSet: FontSet;
   paper: Paper;
-  clearInset: number;
   notes: string[];
 }
 
@@ -38,7 +37,6 @@ const sat = (c: RGB) => {
   const mx = Math.max(...c);
   return mx === 0 ? 0 : (mx - Math.min(...c)) / mx;
 };
-const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /* ---------- raster analysis ---------- */
 interface RasterAnalysis {
@@ -236,7 +234,6 @@ function analyseRaster(src: HTMLCanvasElement): RasterAnalysis {
     style: {
       bg: hex(bg),
       ink: hex(ink),
-      muted: hex(mix(ink, bg, 0.45)),
       accent: hex(accentRgb),
       frames: usedFrames,
       band,
@@ -337,7 +334,7 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
   });
 }
 
-function finish(canvas: HTMLCanvasElement | null, a: RasterAnalysis | null, base: Omit<RefResult, "thumb" | "bg" | "style" | "notes" | "paper" | "clearInset"> & { style?: CustomStyle; notes?: string[] }): RefResult {
+function finish(canvas: HTMLCanvasElement | null, a: RasterAnalysis | null, base: Omit<RefResult, "thumb" | "bg" | "style" | "notes" | "paper"> & { style?: CustomStyle; notes?: string[] }): RefResult {
   const notes = [...(a?.notes ?? []), ...(base.notes ?? [])];
   const style = a?.style ?? base.style;
   if (!style) throw new Error("No certificate style could be read.");
@@ -357,8 +354,7 @@ function finish(canvas: HTMLCanvasElement | null, a: RasterAnalysis | null, base
   const ratio = a?.ratio ?? 1.414;
   let paper: Paper = "a4";
   if (ratio >= 1.2) paper = Math.abs(ratio - 1.414) <= Math.abs(ratio - 1.294) ? "a4" : "letter";
-  else notes.push("Portrait page — style is copied onto a landscape certificate");
-  return { ...base, thumb, bg, style, notes, paper, clearInset: style.corners ? 72 : 0 };
+  return { ...base, thumb, bg, style, notes, paper };
 }
 
 async function fromImage(file: File): Promise<RefResult> {
@@ -402,20 +398,32 @@ async function fromDocx(file: File): Promise<RefResult> {
   const dom = new DOMParser().parseFromString(await xmlFile.async("string"), "application/xml");
   const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
   const all = (name: string, root: Document | Element = dom) => Array.from(root.getElementsByTagNameNS(W_NS, name));
+  // Text boxes nest paragraphs inside paragraphs, and Word stores each box twice (mc:Choice and an mc:Fallback copy).
+  // Read every paragraph's own runs only, and skip the fallback copy, so wording is seen once.
+  const nearestP = (e: Element): Node | null => {
+    for (let n = e.parentNode; n; n = n.parentNode) if ((n as Element).localName === "p" && (n as Element).namespaceURI === W_NS) return n;
+    return null;
+  };
+  const inFallback = (e: Element) => {
+    for (let n = e.parentNode; n; n = n.parentNode) if ((n as Element).localName === "Fallback") return true;
+    return false;
+  };
+  const own = (name: string, p: Element) => all(name, p).filter((e) => nearestP(e) === p);
 
   const lines: Line[] = [];
   const colorCount = new Map<string, number>();
   const fontCount = new Map<string, number>();
   all("p").forEach((p, i) => {
-    const text = all("t", p).map((t) => t.textContent ?? "").join("").trim();
+    if (inFallback(p)) return;
+    const text = own("t", p).map((t) => t.textContent ?? "").join("").trim();
     if (!text) return;
     let size = 0;
-    all("sz", p).forEach((s) => { size = Math.max(size, parseInt(attr(s, "val"), 10) / 2 || 0); });
-    all("color", p).forEach((c) => {
+    own("sz", p).forEach((s) => { size = Math.max(size, parseInt(attr(s, "val"), 10) / 2 || 0); });
+    own("color", p).forEach((c) => {
       const v = attr(c, "val").toUpperCase();
       if (/^[0-9A-F]{6}$/.test(v)) colorCount.set(v, (colorCount.get(v) ?? 0) + text.length);
     });
-    all("rFonts", p).forEach((r) => {
+    own("rFonts", p).forEach((r) => {
       const f = attr(r, "ascii");
       if (f) fontCount.set(f, (fontCount.get(f) ?? 0) + text.length);
     });
@@ -476,7 +484,6 @@ async function fromDocx(file: File): Promise<RefResult> {
   const style: CustomStyle = {
     bg: hex(bgRgb),
     ink: hex(ink),
-    muted: hex(mix(ink, bgRgb, 0.45)),
     accent: "#" + accentHex.toLowerCase(),
     frames,
     band: 0,

@@ -130,8 +130,7 @@
   .chip[aria-pressed="true"], .chip[aria-selected="true"] { border-color: transparent; background: var(--grad-brand); color: var(--primary-foreground); }
   .field { width: 100%; min-width: 0; border-radius: .5rem; border: 1px solid var(--border); background: var(--card); padding: .5rem .75rem; font-size: .875rem; }
   .label { margin-bottom: .375rem; display: block; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .025em; color: var(--muted-foreground); }
-}
-@layer components {
+
   /* Gradient app bar */
   .studio-header { background: var(--grad-brand); color: #fff; box-shadow: 0 6px 24px -10px oklch(.5 .2 320 / .6); }
   /* Step panels: white card with a coloured top stripe and tinted title */

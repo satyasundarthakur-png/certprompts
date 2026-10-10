@@ -8,6 +8,7 @@ import { INSTRUCTION, parseAnalysis, type Analysis, type Part } from "@/lib/anal
 import { blankTemplate, lineArt } from "@/lib/refimage";
 import { buildPrompts, exportText, partPrompt, TOOLS, type Tool } from "@/lib/prompts";
 import TemplatePanel from "@/components/TemplatePanel";
+import { downloadText, downloadUrl } from "@/lib/download";
 import { clearHistory, deleteHistory, listHistory, newHistoryId, saveHistory, type HistoryEntry } from "@/lib/history";
 
 type Method = "local" | "chatbot" | "gemini" | "groq" | "server";
@@ -30,15 +31,6 @@ const save = (k: string, v: string) => {
     /* storage unavailable */
   }
 };
-
-function downloadBlob(text: string, name: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
 
 function imageRatio(src: string): Promise<number> {
   return new Promise((res) => {
@@ -138,12 +130,6 @@ export default function CertificateStudio() {
     };
   }, [ref]);
 
-  const dl = (url: string, name: string) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-  };
   const hint = ref?.text.lines.join("\n") ?? "";
 
   async function onFile(f?: File | null) {
@@ -255,6 +241,11 @@ export default function CertificateStudio() {
                 <p className="text-sm">Drop a certificate image, PDF or Word file</p>
               )}
               {file && <p className="mb-2 truncate text-xs text-muted-foreground">{file.name}</p>}
+              {ref && ref.notes.length > 0 && (
+                <ul aria-label="What the scan found" className="mx-auto mb-3 max-w-xs list-disc pl-5 text-left text-[11px] text-muted-foreground">
+                  {ref.notes.map((n, i) => <li key={i}>{n}</li>)}
+                </ul>
+              )}
               <Button variant="studio" size="studio" type="button"  disabled={!!busy} onClick={() => input.current?.click()}>{file ? "Choose another" : "Choose file"}</Button>
               <input ref={input} type="file" className="sr-only" aria-label="Upload a certificate" accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,image/*" onChange={(e) => void onFile(e.target.files?.[0])} />
               <p className="mt-2 text-xs text-muted-foreground">PNG · JPG · PDF (page 1) · DOCX</p>
@@ -359,8 +350,8 @@ export default function CertificateStudio() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="studio" size="studio" type="button"  onClick={() => downloadBlob(exportText(analysis, prompts), "certificate-prompts.txt", "text/plain")}>Download .txt</Button>
-                    <Button variant="studio" size="studio" type="button"  onClick={() => downloadBlob(JSON.stringify(analysis, null, 2), "certificate-analysis.json", "application/json")}>.json</Button>
+                    <Button variant="studio" size="studio" type="button"  onClick={() => downloadText(exportText(analysis, prompts), "certificate-prompts.txt", "text/plain")}>Download .txt</Button>
+                    <Button variant="studio" size="studio" type="button"  onClick={() => downloadText(JSON.stringify(analysis, null, 2), "certificate-analysis.json", "application/json")}>.json</Button>
                   </div>
                 </div>
                 {analysis.summary && <p className="mt-3 text-sm">{analysis.summary}</p>}
@@ -409,7 +400,7 @@ export default function CertificateStudio() {
                           </div>
                           <span className="text-xs font-semibold">{r.title}</span>
                           <span className="text-[10px] text-muted-foreground">{r.tip}</span>
-                          <Button variant="studio" size="studio" type="button" className="px-2 py-1 text-xs" disabled={!r.src} onClick={() => r.src && dl(r.src, r.name)}>Download</Button>
+                          <Button variant="studio" size="studio" type="button" className="px-2 py-1 text-xs" disabled={!r.src} onClick={() => r.src && downloadUrl(r.src, r.name)}>Download</Button>
                         </div>
                       ))}
                     </div>
