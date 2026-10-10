@@ -7,6 +7,7 @@ import { analyseWithAI, DEFAULT_MODELS, type Provider } from "@/lib/ai";
 import { INSTRUCTION, parseAnalysis, type Analysis, type Part } from "@/lib/analysis";
 import { blankTemplate, lineArt } from "@/lib/refimage";
 import { buildPrompts, exportText, partPrompt, TOOLS, type Tool } from "@/lib/prompts";
+import { clearHistory, deleteHistory, listHistory, newHistoryId, saveHistory, type HistoryEntry } from "@/lib/history";
 
 type Method = "local" | "chatbot" | "gemini" | "groq" | "server";
 
@@ -66,6 +67,55 @@ export default function CertificateStudio() {
   const [err, setErr] = useState("");
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const currentId = useRef<string | null>(null);
+  const meta = useRef({ name: "", thumb: "" });
+
+  useEffect(() => {
+    void listHistory().then(setHistory);
+  }, []);
+
+  // Autosave the open analysis (including later edits to its prompts) shortly after it changes.
+  useEffect(() => {
+    const id = currentId.current;
+    if (!analysis || !id) return;
+    const t = setTimeout(() => {
+      void saveHistory({ id, savedAt: Date.now(), fileName: meta.current.name || "Certificate", thumb: meta.current.thumb, ratio, analysis })
+        .then(listHistory)
+        .then(setHistory);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [analysis, ratio]);
+
+  /** Start a fresh analysis: new history entry, remembering which file it came from. */
+  function begin(a: Analysis) {
+    currentId.current = newHistoryId();
+    meta.current = { name: file?.name ?? "Certificate", thumb: ref?.thumb ?? "" };
+    setAnalysis(a);
+  }
+
+  function restore(h: HistoryEntry) {
+    currentId.current = h.id;
+    meta.current = { name: h.fileName, thumb: h.thumb };
+    setErr("");
+    // The original file isn't kept, so the upload resets and prompts fall back to text-only mode.
+    setFile(null);
+    setRef(null);
+    setRatio(h.ratio);
+    setAnalysis(h.analysis);
+  }
+
+  async function removeEntry(id: string) {
+    await deleteHistory(id);
+    if (currentId.current === id) currentId.current = null;
+    setHistory(await listHistory());
+  }
+
+  async function clearAll() {
+    await clearHistory();
+    currentId.current = null;
+    setHistory([]);
+  }
 
   const prompts = useMemo(() => (analysis ? buildPrompts(analysis, { withText, reference: reference && !!ref?.bg, changes }) : []), [analysis, withText, reference, changes, ref]);
   const cur = prompts.find((p) => p.tool === tool) ?? prompts[0];
@@ -117,12 +167,12 @@ export default function CertificateStudio() {
     if (!ref) return;
     setErr("");
     if (method === "local") {
-      setAnalysis(localAnalysis(ref, ratio));
+      begin(localAnalysis(ref, ratio));
       return;
     }
     if (method === "chatbot") {
       try {
-        setAnalysis(parseAnalysis(pasted, "pasted"));
+        begin(parseAnalysis(pasted, "pasted"));
       } catch (e) {
         setErr(e instanceof Error ? e.message : "Could not read the reply.");
       }
@@ -146,7 +196,7 @@ export default function CertificateStudio() {
     try {
       const a = await analyseWithAI({ provider, key, model: provider === "server" ? "" : models[provider as "gemini" | "groq"], image: ref.bg, hint, endpoint: ENDPOINT });
       if (!a.parts.length) throw new Error("The AI reply had no components. Try again or use another model.");
-      setAnalysis(a);
+      begin(a);
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
       setErr(/Failed to fetch|NetworkError/i.test(m) ? "Couldn't reach the AI service (network or browser blocked the request). Try the chatbot copy/paste method instead." : m);
@@ -259,6 +309,34 @@ export default function CertificateStudio() {
             </Button>
             {err && <p role="alert" className="mt-3 text-sm text-destructive">{err}</p>}
           </section>
+          {history.length > 0 && (
+            <section className="panel" data-tone="amber" aria-labelledby="s-hist">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 id="s-hist" className="panel-title">Recent analyses</h2>
+                <button type="button" className="text-xs text-muted-foreground underline" onClick={() => void clearAll()}>Clear all</button>
+              </div>
+              <ul className="grid gap-2">
+                {history.map((h) => (
+                  <li key={h.id} className={`flex items-center gap-3 rounded-lg border p-2 ${h.id === currentId.current ? "border-brand bg-brand/5" : "border-line"}`}>
+                    {h.thumb ? (
+                      <img src={h.thumb} alt="" className="h-10 w-14 flex-none rounded border border-line object-cover" />
+                    ) : (
+                      <div className="h-10 w-14 flex-none rounded border border-dashed border-line" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{h.fileName}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {h.analysis.style} · {h.analysis.parts.length} parts · {new Date(h.savedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                      </p>
+                    </div>
+                    <Button variant="studio" size="studio" type="button" className="px-3 py-1 text-xs" disabled={!!busy} onClick={() => restore(h)}>Open</Button>
+                    <button type="button" className="px-1 text-muted-foreground hover:text-destructive" aria-label={`Delete ${h.fileName}`} onClick={() => void removeEntry(h.id)}>✕</button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted-foreground">Saved on this device only. Opening one resets the upload — add the original file again if you want its reference images.</p>
+            </section>
+          )}
           <p className="px-1 text-xs text-muted-foreground">
             For recreating a <i>design</i>. Names, signatures, seals and ID numbers are turned into placeholders — please don’t use this to copy certificates issued by real institutions.
           </p>
