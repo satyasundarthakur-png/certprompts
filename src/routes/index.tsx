@@ -1,24 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const CertificateStudio = lazy(() => import("@/components/CertificateStudio"));
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Certificate Prompt Studio" },
+      { name: "description", content: "Analyse certificate designs and create editable prompts for your favourite AI image tools." },
+      { property: "og:title", content: "Certificate Prompt Studio" },
+      { property: "og:description", content: "Turn certificate images, PDFs and Word documents into detailed design prompts." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
+function LoadingStudio() {
+  return <div className="min-h-screen p-6"><h1 className="font-display text-xl">Certificate Prompt Studio</h1><p className="mt-4 text-sm text-muted-foreground" role="status">Loading studio…</p></div>;
+}
+
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <ClientOnly fallback={<LoadingStudio />}>
+      <Suspense fallback={<LoadingStudio />}><CertificateStudio /></Suspense>
+    </ClientOnly>
   );
 }
