@@ -47,13 +47,13 @@ export async function lineArt(src: string, maxW = 1536): Promise<string> {
   x.drawImage(img, 0, 0, w, h);
   const d = x.getImageData(0, 0, w, h).data;
   const g = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  for (let i = 0; i < w * h; i++) g[i] = 0.299 * (d[i * 4] ?? 0) + 0.587 * (d[i * 4 + 1] ?? 0) + 0.114 * (d[i * 4 + 2] ?? 0);
   const out = x.createImageData(w, h);
   for (let y = 1; y < h - 1; y++) {
     for (let xx = 1; xx < w - 1; xx++) {
       const i = y * w + xx;
-      const gx = -g[i - w - 1] - 2 * g[i - 1] - g[i + w - 1] + g[i - w + 1] + 2 * g[i + 1] + g[i + w + 1];
-      const gy = -g[i - w - 1] - 2 * g[i - w] - g[i - w + 1] + g[i + w - 1] + 2 * g[i + w] + g[i + w + 1];
+      const gx = -(g[i - w - 1] ?? 0) - 2 * (g[i - 1] ?? 0) - (g[i + w - 1] ?? 0) + (g[i - w + 1] ?? 0) + 2 * (g[i + 1] ?? 0) + (g[i + w + 1] ?? 0);
+      const gy = -(g[i - w - 1] ?? 0) - 2 * (g[i - w] ?? 0) - (g[i - w + 1] ?? 0) + (g[i + w - 1] ?? 0) + 2 * (g[i + w] ?? 0) + (g[i + w + 1] ?? 0);
       const m = Math.min(255, Math.hypot(gx, gy) * 0.9);
       const v = m > 40 ? 255 : m > 18 ? m * 2 : 0;
       out.data[i * 4] = out.data[i * 4 + 1] = out.data[i * 4 + 2] = v;

@@ -21,14 +21,15 @@ export function localAnalysis(r: RefResult, ratio: number): Analysis {
     prompt: `smooth ${bgName} (${st.bg}) premium paper background, subtle fine paper grain`,
     confidence: "seen",
   });
-  if (st.frames.length) {
+  const firstFrame = st.frames[0];
+  if (firstFrame) {
     const double = st.frames.length > 1;
-    const thick = st.frames[0].width > 3;
+    const thick = firstFrame.width > 3;
     add({
       id: "border",
       name: "Border frame",
       kind: "artwork",
-      position: `rectangular, inset about ${(st.frames[0].inset / 10).toFixed(1)}% from each edge`,
+      position: `rectangular, inset about ${(firstFrame.inset / 10).toFixed(1)}% from each edge`,
       description: `${double ? "Double" : "Single"} ${accName} (${st.accent}) rule frame${double ? ": a thicker outer line and a thin inner line" : ""}.`,
       prompt: `${double ? "elegant double-line" : "single-line"} ${thick ? "bold" : "fine"} ${accName} (${st.accent}) rectangular border frame inset from the page edge${double ? ", thick outer rule and thin inner rule" : ""}`,
       confidence: "seen",

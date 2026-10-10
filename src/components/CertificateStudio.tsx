@@ -10,8 +10,8 @@ import { buildPrompts, exportText, partPrompt, TOOLS, type Tool } from "@/lib/pr
 
 type Method = "local" | "chatbot" | "gemini" | "groq" | "server";
 
-const ENDPOINT = (import.meta.env.VITE_DESCRIBE_ENDPOINT as string | undefined) || "";
-const ANON = (import.meta.env.VITE_DESCRIBE_ANON_KEY as string | undefined) || "";
+const ENDPOINT = (import.meta.env["VITE_DESCRIBE_ENDPOINT"] as string | undefined) || "";
+const ANON = (import.meta.env["VITE_DESCRIBE_ANON_KEY"] as string | undefined) || "";
 
 const load = (k: string, d = "") => {
   try {

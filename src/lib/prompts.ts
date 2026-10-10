@@ -43,7 +43,7 @@ function mjRatio([w, h]: [number, number]) {
 const sentence = (s: string) => {
   const t = s.trim().replace(/\s+/g, " ");
   if (!t) return "";
-  return t[0].toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".");
+  return t.charAt(0).toUpperCase() + t.slice(1) + (/[.!?]$/.test(t) ? "" : ".");
 };
 
 function textOnlyPrompts(a: Analysis, o: BuildOptions): ToolPrompt[] {

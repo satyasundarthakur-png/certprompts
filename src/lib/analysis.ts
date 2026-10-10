@@ -59,14 +59,14 @@ Reply with JSON only, exactly in this shape:
 const s = (v: unknown, d = "") => (typeof v === "string" ? v.trim() : d);
 
 function slug(t: string) {
-  return t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "part";
+  return t["toLowerCase"]().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "part";
 }
 
 /** Pull the JSON object out of a model reply (tolerates code fences and chatter) and normalise it. */
 export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis {
   let txt = raw.trim();
   const fence = txt.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) txt = fence[1];
+  if (fence?.[1]) txt = fence[1];
   const start = txt.indexOf("{");
   const end = txt.lastIndexOf("}");
   if (start < 0 || end < start) throw new Error("No JSON found in the reply.");
@@ -77,22 +77,22 @@ export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis
     throw new Error("The reply wasn't valid JSON. Ask the chatbot to reply with JSON only and try again.");
   }
   const arr = (v: unknown) => (Array.isArray(v) ? v : []);
-  const aspect = arr(obj.aspect).map(Number).filter((n) => n > 0);
-  const orientation = s(obj.orientation) === "portrait" ? "portrait" : "landscape";
+  const aspect = arr(obj["aspect"]).map(Number).filter((n) => n > 0);
+  const orientation = s(obj["orientation"]) === "portrait" ? "portrait" : "landscape";
   const seen = new Set<string>();
-  const parts: Part[] = arr(obj.parts)
+  const parts: Part[] = arr(obj["parts"])
     .map((p: Record<string, unknown>) => {
-      const name = s(p.name, "Component");
-      let id = slug(s(p.id) || name);
+      const name = s(p["name"], "Component");
+      let id = slug(s(p["id"]) || name);
       while (seen.has(id)) id += "-2";
       seen.add(id);
       return {
         id,
         name,
-        kind: (s(p.kind) === "text" ? "text" : "artwork") as Part["kind"],
-        position: s(p.position),
-        description: s(p.description),
-        prompt: s(p.prompt) || s(p.description),
+        kind: (s(p["kind"]) === "text" ? "text" : "artwork") as Part["kind"],
+        position: s(p["position"]),
+        description: s(p["description"]),
+        prompt: s(p["prompt"]) || s(p["description"]),
         include: true,
         confidence: "seen" as const,
       };
@@ -100,17 +100,17 @@ export function parseAnalysis(raw: string, source: Analysis["source"]): Analysis
     .filter((p) => p.prompt);
   return {
     source,
-    summary: s(obj.summary),
+    summary: s(obj["summary"]),
     orientation,
-    aspect: aspect.length === 2 ? [aspect[0], aspect[1]] : orientation === "portrait" ? [210, 297] : [297, 210],
-    style: s(obj.style, "formal certificate"),
-    mood: arr(obj.mood).map((m) => s(m)).filter(Boolean).slice(0, 6),
-    palette: arr(obj.palette)
-      .map((p: Record<string, unknown>) => ({ name: s(p.name, "colour"), hex: /^#[0-9a-f]{6}$/i.test(s(p.hex)) ? s(p.hex).toLowerCase() : "#888888", role: s(p.role) }))
+    aspect: aspect.length === 2 ? [aspect[0] ?? 297, aspect[1] ?? 210] : orientation === "portrait" ? [210, 297] : [297, 210],
+    style: s(obj["style"], "formal certificate"),
+    mood: arr(obj["mood"]).map((m) => s(m)).filter(Boolean).slice(0, 6),
+    palette: arr(obj["palette"])
+      .map((p: Record<string, unknown>) => ({ name: s(p["name"], "colour"), hex: /^#[0-9a-f]{6}$/i.test(s(p["hex"])) ? s(p["hex"]).toLowerCase() : "#888888", role: s(p["role"]) }))
       .slice(0, 8),
     parts,
-    text: arr(obj.text)
-      .map((t: Record<string, unknown>) => ({ element: s(t.element, "text"), content: s(t.content), style: s(t.style) }))
+    text: arr(obj["text"])
+      .map((t: Record<string, unknown>) => ({ element: s(t["element"], "text"), content: s(t["content"]), style: s(t["style"]) }))
       .filter((t) => t.content),
   };
 }
